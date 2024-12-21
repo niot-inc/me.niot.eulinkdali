@@ -29,6 +29,8 @@ module.exports = class DimmableDevice extends Homey.Device {
 
     const level = Math.round(value * 100);
     await setDeviceDim(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, level);
+
+    this.log(`DimmableDevice ${instanceId} dim level has been set to`, level);
   }
 
   /**

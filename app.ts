@@ -1,11 +1,15 @@
 'use strict';
 
 import Homey from 'homey';
+import WebSocketAsPromised from 'websocket-as-promised';
 import axios from 'axios';
-
+import WebSocket from 'ws';
+import _ from 'lodash';
 
 module.exports = class MyApp extends Homey.App {
 
+  private wsp: WebSocketAsPromised | null = null;
+  private reconnectInterval: NodeJS.Timeout | null = null;
   private tokenRefreshInterval: NodeJS.Timeout | null = null;
 
   /**
@@ -31,6 +35,9 @@ module.exports = class MyApp extends Homey.App {
 
       // 토큰 갱신 주기 시작
       this.startTokenRefreshInterval();
+
+      // 웹소켓 초기화 및 연결
+      await this.initializeWebSocket(serverUrl);
     } else {
       this.log('Initial settings are insufficient for authentication');
     }
@@ -43,6 +50,9 @@ module.exports = class MyApp extends Homey.App {
     const password = this.homey.settings.get('password');
 
     if (serverUrl && username && password) {
+      // 기존 웹소켓 연결 종료
+      await this.closeWebSocket();
+
       // 기존 토큰 갱신 주기 중지
       this.stopTokenRefreshInterval();
 
@@ -51,6 +61,9 @@ module.exports = class MyApp extends Homey.App {
 
       // 새로운 토큰 갱신 주기 시작
       this.startTokenRefreshInterval();
+
+      // 새로운 서버 주소로 웹소켓 초기화 및 연결
+      await this.initializeWebSocket(serverUrl);
     } else {
       this.log('Initial settings are insufficient for authentication');
     }
@@ -122,9 +135,121 @@ module.exports = class MyApp extends Homey.App {
     }
   }
 
+  private handleWebSocketMessage(message: {messageType: string, instanceId: number, variableName: string, variableValue: number}) {
+    const { instanceId, variableName, variableValue } = message;
+
+    if (message.messageType !== 'variableValue') return;
+
+    const dimmableDevices = this.homey.drivers.getDriver('dimmable').getDevices();
+    const groupDevices = this.homey.drivers.getDriver('group').getDevices();
+    const allDevices = [...dimmableDevices, ...groupDevices];
+
+    allDevices.forEach((device) => {
+      const deviceData = device.getData() as { id: string };
+      if (deviceData.id === instanceId.toString()) {
+        const dimValue = _.round(variableValue / 100, 2);
+        this.log(`Setting ${variableName} of ${device.getName()} to ${dimValue}`);
+        if (dimValue <= 0) {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          device.setCapabilityValue('onoff', false);
+          // // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          // device.setCapabilityValue('dim', 0);
+        } else if (dimValue >= 1) {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          device.setCapabilityValue('onoff', true);
+          // // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          // device.setCapabilityValue('dim', 1);
+        } else {
+          // // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          // device.setCapabilityValue('onoff', true);
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          device.setCapabilityValue('dim', dimValue);
+        }
+      }
+    });
+
+    const bistableDriver = this.homey.drivers.getDriver('bistable').getDevices();
+    bistableDriver.forEach((device) => {
+      const deviceData = device.getData() as { id: string };
+      if (deviceData.id === instanceId.toString()) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        device.setCapabilityValue('onoff', variableValue === 1);
+      }
+    });
+  }
+
   async onUninit() {
     // 앱 종료 시 인터벌 정리
     this.stopTokenRefreshInterval();
+
+    // 웹소켓 연결 종료
+    await this.closeWebSocket();
+  }
+
+  private async openWebSocket() {
+    try {
+      if (this.wsp && this.wsp.isClosed) {
+        await this.wsp.open();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.error('Failed to open WebSocket connection:', message);
+    }
+  }
+
+  private async initializeWebSocket(serverUrl: string) {
+    this.wsp = new WebSocketAsPromised(`ws://${serverUrl}/api/v1/stream/instance-values`, {
+      // createWebSocket: (url) => new WebSocket(url),
+      // packMessage: (data) => JSON.stringify(data),
+      // unpackMessage: (data) => JSON.parse(data),
+      // attachRequestId: (data, requestId) => ({ ...data, requestId }),
+      // extractRequestId:(data) => data?.requestId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createWebSocket: (url) => (new WebSocket(url) as any),
+      extractMessageData: (event) => event,
+      unpackMessage: (data) => JSON.parse(data as string),
+    });
+
+    this.wsp.onOpen.addListener(() => {
+      this.log('WebSocket connection established');
+      if (this.reconnectInterval) {
+        clearInterval(this.reconnectInterval);
+        this.reconnectInterval = null;
+      }
+    });
+
+    this.wsp.onClose.addListener(() => {
+      this.log('WebSocket connection closed, attempting to reconnect...');
+      if (!this.reconnectInterval) {
+        this.reconnectInterval = this.homey.setInterval(() => this.reconnectWebSocket(), 5000);
+      }
+    });
+
+    this.wsp.onError.addListener((error: Error) => {
+      this.error('WebSocket error:', error.message);
+    });
+
+    this.wsp.onUnpackedMessage.addListener((message) => {
+      this.handleWebSocketMessage(message);
+    });
+
+    await this.openWebSocket();
+  }
+
+  private async reconnectWebSocket() {
+    this.log('Attempting to reconnect WebSocket...');
+    await this.openWebSocket();
+  }
+
+  private async closeWebSocket() {
+    try {
+      if (this.wsp && this.wsp.isOpened) {
+        await this.wsp.close();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.error('Failed to close WebSocket connection:', message);
+    }
   }
 
 };
