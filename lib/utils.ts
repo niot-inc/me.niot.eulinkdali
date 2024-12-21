@@ -37,3 +37,53 @@ export async function getDaliDevices(accessToken: string, serverUrl: string) {
     internalId: device.device.internalId,
   }));
 }
+
+/**
+ * Set the on/off state of a device.
+ * @param accessToken
+ * @param serverUrl
+ * @param instanceId
+ * @param on The on/off state.
+ */
+export async function setDeviceOnOff(accessToken: string, serverUrl: string, instanceId: string, on: boolean) {
+  const body = {
+    source: 'button', rowId: 1, command: on ? 'turnOn' : 'turnOff', params: null,
+  };
+  await axios.put(`http://${serverUrl}/api/v1/instance/${instanceId}/panel/action`, body, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeout: 10000, // 10초 타임아웃 설정 (10000밀리초)
+  });
+}
+
+/**
+ * Toggle the on/off state of a device.
+ * @param accessToken
+ * @param serverUrl
+ * @param instanceId
+ */
+export async function setDeviceToggle(accessToken: string, serverUrl: string, instanceId: string) {
+  const body = {
+    source: 'button', rowId: 0, command: 'toggle', params: null,
+  };
+  await axios.put(`http://${serverUrl}/api/v1/instance/${instanceId}/panel/action`, body, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeout: 10000, // 10초 타임아웃 설정 (10000밀리초)
+  });
+}
+
+/**
+ * Set the dim level of a device. Only works for dimmable devices.
+ * @param accessToken
+ * @param serverUrl
+ * @param instanceId
+ * @param dim The dim level, between 0 and 100.
+ */
+export async function setDeviceDim(accessToken: string, serverUrl: string, instanceId: string, dim: number) {
+  const body = {
+    source: 'slider', rowId: 2, command: 'setLevel', params: { slider: dim },
+  };
+  await axios.put(`http://${serverUrl}/api/v1/instance/${instanceId}/panel/action`, body, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    timeout: 10000, // 10초 타임아웃 설정 (10000밀리초)
+  });
+}

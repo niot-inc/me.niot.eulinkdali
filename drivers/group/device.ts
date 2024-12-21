@@ -1,21 +1,41 @@
 'use strict';
 
 import Homey from 'homey';
+import { setDeviceDim, setDeviceOnOff } from '../../lib/utils';
 
-module.exports = class MyDevice extends Homey.Device {
+module.exports = class GroupDevice extends Homey.Device {
 
   /**
    * onInit is called when the device is initialized.
    */
   async onInit() {
-    this.log('MyDevice has been initialized');
+    this.log('GroupDevice has been initialized');
+
+    // Register a capability listener
+    this.registerCapabilityListener('onoff', this.onCapabilityOnoff.bind(this));
+    this.registerCapabilityListener('dim', this.onCapabilityDim.bind(this));
+  }
+
+  async onCapabilityOnoff(value: boolean) {
+    const deviceData = this.getData() as { id: string };
+    const instanceId = deviceData.id;
+
+    await setDeviceOnOff(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, value);
+  }
+
+  async onCapabilityDim(value: number) {
+    const deviceData = this.getData() as { id: string };
+    const instanceId = deviceData.id;
+
+    const level = Math.round(value * 100);
+    await setDeviceDim(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, level);
   }
 
   /**
    * onAdded is called when the user adds the device, called just after pairing.
    */
   async onAdded() {
-    this.log('MyDevice has been added');
+    this.log('GroupDevice has been added');
   }
 
   /**
@@ -35,7 +55,7 @@ module.exports = class MyDevice extends Homey.Device {
     newSettings: { [key: string]: boolean | string | number | undefined | null };
     changedKeys: string[];
   }): Promise<string | void> {
-    this.log('MyDevice settings where changed');
+    this.log('GroupDevice settings where changed');
   }
 
   /**
@@ -44,14 +64,14 @@ module.exports = class MyDevice extends Homey.Device {
    * @param {string} name The new name
    */
   async onRenamed(name: string) {
-    this.log('MyDevice was renamed');
+    this.log('GroupDevice was renamed');
   }
 
   /**
    * onDeleted is called when the user deleted the device.
    */
   async onDeleted() {
-    this.log('MyDevice has been deleted');
+    this.log('GroupDevice has been deleted');
   }
 
 };

@@ -1,19 +1,32 @@
-import Homey from 'homey';
+'use strict';
 
-module.exports = class MyDevice extends Homey.Device {
+import Homey from 'homey';
+import { setDeviceOnOff } from '../../lib/utils';
+
+module.exports = class BistableDevice extends Homey.Device {
 
   /**
    * onInit is called when the device is initialized.
    */
   async onInit() {
-    this.log('MyDevice has been initialized');
+    this.log('BistableDevice has been initialized');
+
+    // Register a capability listener
+    this.registerCapabilityListener('onoff', this.onCapabilityOnoff.bind(this));
+  }
+
+  async onCapabilityOnoff(value: boolean) {
+    const deviceData = this.getData() as { id: string };
+    const instanceId = deviceData.id;
+
+    await setDeviceOnOff(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, value);
   }
 
   /**
    * onAdded is called when the user adds the device, called just after pairing.
    */
   async onAdded() {
-    this.log('MyDevice has been added');
+    this.log('BistableDevice has been added');
   }
 
   /**
@@ -33,7 +46,7 @@ module.exports = class MyDevice extends Homey.Device {
     newSettings: { [key: string]: boolean | string | number | undefined | null };
     changedKeys: string[];
   }): Promise<string | void> {
-    this.log("MyDevice settings where changed");
+    this.log('BistableDevice settings where changed');
   }
 
   /**
@@ -42,14 +55,14 @@ module.exports = class MyDevice extends Homey.Device {
    * @param {string} name The new name
    */
   async onRenamed(name: string) {
-    this.log('MyDevice was renamed');
+    this.log('BistableDevice was renamed');
   }
 
   /**
    * onDeleted is called when the user deleted the device.
    */
   async onDeleted() {
-    this.log('MyDevice has been deleted');
+    this.log('BistableDevice has been deleted');
   }
 
 };
