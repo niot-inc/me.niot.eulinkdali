@@ -21,6 +21,8 @@ module.exports = class GroupDevice extends Homey.Device {
     const instanceId = deviceData.id;
 
     await setDeviceOnOff(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, value);
+
+    this.log(`GroupDevice ${instanceId} on/off state has been set to`, value);
   }
 
   async onCapabilityDim(value: number) {
@@ -29,6 +31,8 @@ module.exports = class GroupDevice extends Homey.Device {
 
     const level = Math.round(value * 100);
     await setDeviceDim(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, level);
+
+    this.log(`GroupDevice ${instanceId} dim level has been set to`, level);
   }
 
   /**

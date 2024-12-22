@@ -21,6 +21,8 @@ module.exports = class DimmableDevice extends Homey.Device {
     const instanceId = deviceData.id;
 
     await setDeviceOnOff(this.homey.settings.get('access_token'), this.homey.settings.get('server_url'), instanceId, value);
+
+    this.log(`DimmableDevice ${instanceId} on/off state has been set to`, value);
   }
 
   async onCapabilityDim(value: number) {
