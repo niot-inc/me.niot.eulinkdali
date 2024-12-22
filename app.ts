@@ -16,8 +16,6 @@ module.exports = class MyApp extends Homey.App {
    * onInit is called when the app is initialized.
    */
   async onInit() {
-    this.log('MyApp has been initialized');
-
     // 설정 변경 감지
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.homey.settings.on('set', this.onSettingsChanged.bind(this));
@@ -41,31 +39,36 @@ module.exports = class MyApp extends Homey.App {
     } else {
       this.log('Initial settings are insufficient for authentication');
     }
+
+    this.log('MyApp has been initialized');
   }
 
-  async onSettingsChanged() {
-    // 필요한 설정 값들이 모두 존재하는지 확인
-    const serverUrl = this.homey.settings.get('server_url');
-    const username = this.homey.settings.get('username');
-    const password = this.homey.settings.get('password');
+  async onSettingsChanged(key: string) {
+    this.log(`Settings have been changed: ${key}`);
 
-    if (serverUrl && username && password) {
-      // 기존 웹소켓 연결 종료
-      await this.closeWebSocket();
+    // 서버 주소, 사용자 이름, 비밀번호가 변경된 경우에만 재인증 시도
+    if (key === 'server_url' || key === 'username' || key === 'password') {
+      // 필요한 설정 값들이 모두 존재하는지 확인
+      const serverUrl = this.homey.settings.get('server_url');
+      const username = this.homey.settings.get('username');
+      const password = this.homey.settings.get('password');
 
-      // 기존 토큰 갱신 주기 중지
-      this.stopTokenRefreshInterval();
+      if (serverUrl && username && password) {
+        // 기존 웹소켓 연결 종료
+        await this.closeWebSocket();
 
-      // 새로운 인증 시도
-      await this.authenticate(serverUrl, username, password);
+        // 기존 토큰 갱신 주기 중지
+        this.stopTokenRefreshInterval();
 
-      // 새로운 토큰 갱신 주기 시작
-      this.startTokenRefreshInterval();
+        // 새로운 인증 시도
+        await this.authenticate(serverUrl, username, password);
 
-      // 새로운 서버 주소로 웹소켓 초기화 및 연결
-      await this.initializeWebSocket(serverUrl);
-    } else {
-      this.log('Initial settings are insufficient for authentication');
+        // 새로운 토큰 갱신 주기 시작
+        this.startTokenRefreshInterval();
+
+        // 새로운 서버 주소로 웹소켓 초기화 및 연결
+        await this.initializeWebSocket(serverUrl);
+      }
     }
   }
 
@@ -115,7 +118,7 @@ module.exports = class MyApp extends Homey.App {
   async refreshAccessToken(refreshToken: string) {
     try {
       const serverUrl = this.homey.settings.get('server_url');
-      const response = await axios.post(`${serverUrl}/api/v1/auth/refresh`, {
+      const response = await axios.post(`http://${serverUrl}/api/v1/auth/refresh`, {
         refreshToken,
       }, {
         headers: {
@@ -148,7 +151,7 @@ module.exports = class MyApp extends Homey.App {
       const deviceData = device.getData() as { id: string };
       if (deviceData.id === instanceId.toString()) {
         const dimValue = _.round(variableValue / 100, 2);
-        this.log(`Setting ${variableName} of ${device.getName()} to ${dimValue}`);
+        this.log(`Setting ${variableName} of ${device.getName()}(${deviceData.id}) to ${dimValue}`);
         if (dimValue <= 0) {
           // eslint-disable-next-line @typescript-eslint/no-floating-promises
           device.setCapabilityValue('onoff', false);
@@ -172,6 +175,7 @@ module.exports = class MyApp extends Homey.App {
     bistableDriver.forEach((device) => {
       const deviceData = device.getData() as { id: string };
       if (deviceData.id === instanceId.toString()) {
+        this.log(`Setting ${variableName} of ${device.getName()}(${deviceData.id}) to ${variableValue}`);
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         device.setCapabilityValue('onoff', variableValue === 1);
       }
@@ -198,12 +202,11 @@ module.exports = class MyApp extends Homey.App {
   }
 
   private async initializeWebSocket(serverUrl: string) {
+    if (this.wsp) {
+      this.log('Closing existing WebSocket connection before initializing a new one');
+      await this.closeWebSocket();
+    }
     this.wsp = new WebSocketAsPromised(`ws://${serverUrl}/api/v1/stream/instance-values`, {
-      // createWebSocket: (url) => new WebSocket(url),
-      // packMessage: (data) => JSON.stringify(data),
-      // unpackMessage: (data) => JSON.parse(data),
-      // attachRequestId: (data, requestId) => ({ ...data, requestId }),
-      // extractRequestId:(data) => data?.requestId,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       createWebSocket: (url) => (new WebSocket(url) as any),
       extractMessageData: (event) => event,
