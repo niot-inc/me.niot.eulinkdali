@@ -6,6 +6,7 @@
   "platforms": [
     "local"
   ],
+  "brandColor": "#67BD45",
   "name": {
     "en": "euLINK DALI"
   },
