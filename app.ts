@@ -141,6 +141,7 @@ module.exports = class MyApp extends Homey.App {
   private handleWebSocketMessage(message: {messageType: string, instanceId: number, variableName: string, variableValue: number}) {
     const { instanceId, variableName, variableValue } = message;
 
+    // 나머지는 UI 업데이트용 메시지이므로 무시
     if (message.messageType !== 'variableValue') return;
 
     const dimmableDevices = this.homey.drivers.getDriver('dimmable').getDevices();
@@ -155,18 +156,18 @@ module.exports = class MyApp extends Homey.App {
         if (dimValue <= 0) {
           // eslint-disable-next-line @typescript-eslint/no-floating-promises
           device.setCapabilityValue('onoff', false);
-          // // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          // device.setCapabilityValue('dim', 0);
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          device.setCapabilityValue('dim', 0);
         } else if (dimValue >= 1) {
           // eslint-disable-next-line @typescript-eslint/no-floating-promises
           device.setCapabilityValue('onoff', true);
-          // // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          // device.setCapabilityValue('dim', 1);
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          device.setCapabilityValue('dim', 1);
         } else {
-          // // eslint-disable-next-line @typescript-eslint/no-floating-promises
-          // device.setCapabilityValue('onoff', true);
           // eslint-disable-next-line @typescript-eslint/no-floating-promises
           device.setCapabilityValue('dim', dimValue);
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          device.setCapabilityValue('onoff', true);
         }
       }
     });
