@@ -1,8 +1,8 @@
 {
   "name": {
-    "en": "DALI Bistable Luminaire"
+    "en": "DALI Bistable Device"
   },
-  "class": "light",
+  "class": "fan",
   "capabilities": [
     "onoff"
   ],
