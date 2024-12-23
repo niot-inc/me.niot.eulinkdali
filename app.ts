@@ -178,7 +178,7 @@ module.exports = class MyApp extends Homey.App {
       if (deviceData.id === instanceId.toString()) {
         this.log(`Setting ${variableName} of ${device.getName()}(${deviceData.id}) to ${variableValue}`);
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        device.setCapabilityValue('onoff', variableValue === 1);
+        device.setCapabilityValue('onoff', variableValue === 100);
       }
     });
   }
