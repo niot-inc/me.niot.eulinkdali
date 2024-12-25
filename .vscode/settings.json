@@ -5,6 +5,10 @@
     "editor.insertSpaces": true,
     "editor.renderControlCharacters": true,
     "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+    "eslint.format.enable": true,
     "files.trimTrailingWhitespace": true,
     "files.trimFinalNewlines": true,
     "files.insertFinalNewline": true,
